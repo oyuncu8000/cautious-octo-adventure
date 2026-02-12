@@ -73,7 +73,7 @@ const SocialApp: React.FC = () => {
   const [messageInput, setMessageInput] = useState('');
   const [newPostContent, setNewPostContent] = useState('');
   const [newPostMedia, setNewPostMedia] = useState<{ url: string; type: 'image' | 'video' } | null>(null);
-  const [lastUpdate, setLastUpdate] = useState(Date.now());
+  const [isLoading, setIsLoading] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
@@ -119,76 +119,25 @@ const SocialApp: React.FC = () => {
     const interval = setInterval(loadData, 1000);
     
     return () => clearInterval(interval);
-  }, [currentUser?.id, lastUpdate]); // currentUser.id değiştiğinde de yükle
+  }, [currentUser?.id]); // currentUser.id değiştiğinde de yükle
 
-  // Kullanıcıları localStorage'a kaydet ve diğer sekmeleri bilgilendir
+
+
+  // Kullanıcı oturumunu localStorage'da tut (sadece kimlik doğrulama için)
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('app_users', JSON.stringify(users));
-      // Storage event'i tetikle
-      window.dispatchEvent(new Event('storage'));
-      setLastUpdate(Date.now());
+    const savedUser = localStorage.getItem('current_session_user');
+    if (savedUser) {
+      const user = JSON.parse(savedUser);
+      setCurrentUser(user);
     }
-  }, [users]);
+  }, []);
 
-  // Gönderileri localStorage'a kaydet
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('app_posts', JSON.stringify(posts));
-      window.dispatchEvent(new Event('storage'));
-      setLastUpdate(Date.now());
+    if (currentUser) {
+      localStorage.setItem('current_session_user', JSON.stringify(currentUser));
+    } else {
+      localStorage.removeItem('current_session_user');
     }
-  }, [posts]);
-
-  // Mesajları localStorage'a kaydet
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('app_messages', JSON.stringify(messages));
-      window.dispatchEvent(new Event('storage'));
-      setLastUpdate(Date.now());
-    }
-  }, [messages]);
-
-  // Mevcut kullanıcıyı localStorage'a kaydet
-  useEffect(() => {
-    if (typeof window !== 'undefined' && currentUser) {
-      localStorage.setItem('app_current_user', JSON.stringify(currentUser));
-    }
-  }, [currentUser]);
-
-  // Storage değişikliklerini dinle (diğer sekmeler için)
-  useEffect(() => {
-    const handleStorageChange = () => {
-      try {
-        const usersData = localStorage.getItem('app_users');
-        if (usersData) {
-          const parsedUsers = JSON.parse(usersData);
-          setUsers(parsedUsers);
-          
-          if (currentUser) {
-            const updatedCurrentUser = parsedUsers.find((u: User) => u.id === currentUser.id);
-            if (updatedCurrentUser) {
-              setCurrentUser(updatedCurrentUser);
-            }
-          }
-        }
-
-        const postsData = localStorage.getItem('app_posts');
-        if (postsData) {
-          setPosts(JSON.parse(postsData));
-        }
-
-        const messagesData = localStorage.getItem('app_messages');
-        if (messagesData) {
-          setMessages(JSON.parse(messagesData));
-        }
-      } catch (error) {
-        console.error('Storage değişiklik hatası:', error);
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
   }, [currentUser]);
 
   // Mesajları otomatik kaydır
@@ -528,6 +477,7 @@ const SocialApp: React.FC = () => {
 
             <button
               onClick={isLogin ? handleLogin : handleRegister}
+                disabled={isLoading}
               className="w-full py-3 bg-[#5865F2] text-white rounded-lg font-semibold hover:bg-[#4752C4]"
             >
               {isLogin ? 'Giriş Yap' : 'Hesap Oluştur'}
@@ -1247,9 +1197,14 @@ const PostCard: React.FC<{
             Gönder
           </button>
         </div>
+
+          <div className="mt-6 text-center text-sm text-[#6d6d6d]">
+            <p>✨ Tüm kullanıcılar aynı verileri görür</p>
+            <p className="mt-1">🔄 Veriler gerçek zamanlı güncellenir</p>
+          </div>
+        </div>
       </div>
-    </div>
-  );
-};
+    );
+  };
 
 export default SocialApp;
