@@ -3,8 +3,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Camera, Send, Heart, MessageCircle, UserPlus, Search, Image, Video, X, 
-  Home, Users, User, LogOut, Plus, Bookmark, MoreHorizontal, Bell, Settings,
-  Smile, Paperclip, Phone, VideoIcon, Hash, AtSign
+  Home, Users, User, LogOut, Plus, Bookmark, MoreHorizontal, Bell,
+  Smile, Paperclip, Phone, VideoIcon, Hash
 } from 'lucide-react';
 
 // Types
@@ -73,18 +73,104 @@ const SocialApp: React.FC = () => {
   const [messageInput, setMessageInput] = useState('');
   const [newPostContent, setNewPostContent] = useState('');
   const [newPostMedia, setNewPostMedia] = useState<{ url: string; type: 'image' | 'video' } | null>(null);
+  const [lastUpdate, setLastUpdate] = useState(Date.now());
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // LocalStorage'dan verileri yükle
+  // LocalStorage'dan verileri yükle - her saniye kontrol et
+  useEffect(() => {
+    const loadData = () => {
+      if (typeof window !== 'undefined') {
+        try {
+          const usersData = localStorage.getItem('app_users');
+          if (usersData) {
+            const parsedUsers = JSON.parse(usersData);
+            setUsers(parsedUsers);
+            
+            // Eğer currentUser varsa, onu güncelle
+            if (currentUser) {
+              const updatedCurrentUser = parsedUsers.find((u: User) => u.id === currentUser.id);
+              if (updatedCurrentUser) {
+                setCurrentUser(updatedCurrentUser);
+              }
+            }
+          }
+
+          const postsData = localStorage.getItem('app_posts');
+          if (postsData) {
+            setPosts(JSON.parse(postsData));
+          }
+
+          const messagesData = localStorage.getItem('app_messages');
+          if (messagesData) {
+            setMessages(JSON.parse(messagesData));
+          }
+        } catch (error) {
+          console.error('Veri yükleme hatası:', error);
+        }
+      }
+    };
+
+    loadData();
+    
+    // Her 1 saniyede bir verileri kontrol et (diğer kullanıcıların değişikliklerini görmek için)
+    const interval = setInterval(loadData, 1000);
+    
+    return () => clearInterval(interval);
+  }, [currentUser?.id, lastUpdate]); // currentUser.id değiştiğinde de yükle
+
+  // Kullanıcıları localStorage'a kaydet ve diğer sekmeleri bilgilendir
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      localStorage.setItem('app_users', JSON.stringify(users));
+      // Storage event'i tetikle
+      window.dispatchEvent(new Event('storage'));
+      setLastUpdate(Date.now());
+    }
+  }, [users]);
+
+  // Gönderileri localStorage'a kaydet
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('app_posts', JSON.stringify(posts));
+      window.dispatchEvent(new Event('storage'));
+      setLastUpdate(Date.now());
+    }
+  }, [posts]);
+
+  // Mesajları localStorage'a kaydet
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('app_messages', JSON.stringify(messages));
+      window.dispatchEvent(new Event('storage'));
+      setLastUpdate(Date.now());
+    }
+  }, [messages]);
+
+  // Mevcut kullanıcıyı localStorage'a kaydet
+  useEffect(() => {
+    if (typeof window !== 'undefined' && currentUser) {
+      localStorage.setItem('app_current_user', JSON.stringify(currentUser));
+    }
+  }, [currentUser]);
+
+  // Storage değişikliklerini dinle (diğer sekmeler için)
+  useEffect(() => {
+    const handleStorageChange = () => {
       try {
         const usersData = localStorage.getItem('app_users');
         if (usersData) {
-          setUsers(JSON.parse(usersData));
+          const parsedUsers = JSON.parse(usersData);
+          setUsers(parsedUsers);
+          
+          if (currentUser) {
+            const updatedCurrentUser = parsedUsers.find((u: User) => u.id === currentUser.id);
+            if (updatedCurrentUser) {
+              setCurrentUser(updatedCurrentUser);
+            }
+          }
         }
 
         const postsData = localStorage.getItem('app_posts');
@@ -96,43 +182,13 @@ const SocialApp: React.FC = () => {
         if (messagesData) {
           setMessages(JSON.parse(messagesData));
         }
-
-        const currentUserData = localStorage.getItem('app_current_user');
-        if (currentUserData) {
-          setCurrentUser(JSON.parse(currentUserData));
-        }
       } catch (error) {
-        console.error('Veri yükleme hatası:', error);
+        console.error('Storage değişiklik hatası:', error);
       }
-    }
-  }, []);
+    };
 
-  // Kullanıcıları localStorage'a kaydet
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('app_users', JSON.stringify(users));
-    }
-  }, [users]);
-
-  // Gönderileri localStorage'a kaydet
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('app_posts', JSON.stringify(posts));
-    }
-  }, [posts]);
-
-  // Mesajları localStorage'a kaydet
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('app_messages', JSON.stringify(messages));
-    }
-  }, [messages]);
-
-  // Mevcut kullanıcıyı localStorage'a kaydet
-  useEffect(() => {
-    if (typeof window !== 'undefined' && currentUser) {
-      localStorage.setItem('app_current_user', JSON.stringify(currentUser));
-    }
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, [currentUser]);
 
   // Mesajları otomatik kaydır
@@ -157,18 +213,33 @@ const SocialApp: React.FC = () => {
       friends: [],
       status: 'online'
     };
-    setUsers([...users, newUser]);
+    
+    // Yeni kullanıcıyı ekle
+    const updatedUsers = [...users, newUser];
+    setUsers(updatedUsers);
     setCurrentUser(newUser);
     setAuthForm({ username: '', email: '', password: '' });
+    
+    // Direkt localStorage'a kaydet
+    localStorage.setItem('app_users', JSON.stringify(updatedUsers));
+    localStorage.setItem('app_current_user', JSON.stringify(newUser));
+    window.dispatchEvent(new Event('storage'));
   };
 
   const handleLogin = () => {
     const user = users.find(u => u.email === authForm.email && u.password === authForm.password);
     if (user) {
       const updatedUser = { ...user, status: 'online' as const };
+      const updatedUsers = users.map(u => u.id === user.id ? updatedUser : u);
+      
       setCurrentUser(updatedUser);
-      setUsers(users.map(u => u.id === user.id ? updatedUser : u));
+      setUsers(updatedUsers);
       setAuthForm({ username: '', email: '', password: '' });
+      
+      // Direkt localStorage'a kaydet
+      localStorage.setItem('app_users', JSON.stringify(updatedUsers));
+      localStorage.setItem('app_current_user', JSON.stringify(updatedUser));
+      window.dispatchEvent(new Event('storage'));
     } else {
       alert('Email veya şifre hatalı!');
     }
@@ -176,12 +247,15 @@ const SocialApp: React.FC = () => {
   
   const handleLogout = () => {
     if (currentUser) {
-      setUsers(users.map(u => u.id === currentUser.id ? { ...u, status: 'offline' as const } : u));
+      const updatedUsers = users.map(u => 
+        u.id === currentUser.id ? { ...u, status: 'offline' as const } : u
+      );
+      setUsers(updatedUsers);
+      localStorage.setItem('app_users', JSON.stringify(updatedUsers));
+      window.dispatchEvent(new Event('storage'));
     }
     setCurrentUser(null);
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('app_current_user');
-    }
+    localStorage.removeItem('app_current_user');
     setActiveTab('home');
   };
 
@@ -212,8 +286,15 @@ const SocialApp: React.FC = () => {
     reader.onload = (event) => {
       const url = event.target?.result as string;
       const updatedUser = { ...currentUser, avatar: url };
+      const updatedUsers = users.map(u => u.id === currentUser.id ? updatedUser : u);
+      
       setCurrentUser(updatedUser);
-      setUsers(users.map(u => u.id === currentUser.id ? updatedUser : u));
+      setUsers(updatedUsers);
+      
+      // Direkt localStorage'a kaydet
+      localStorage.setItem('app_users', JSON.stringify(updatedUsers));
+      localStorage.setItem('app_current_user', JSON.stringify(updatedUser));
+      window.dispatchEvent(new Event('storage'));
     };
     reader.readAsDataURL(file);
   };
@@ -235,15 +316,22 @@ const SocialApp: React.FC = () => {
       comments: [],
       timestamp: Date.now()
     };
-    setPosts([newPost, ...posts]);
+    
+    const updatedPosts = [newPost, ...posts];
+    setPosts(updatedPosts);
     setNewPostContent('');
     setNewPostMedia(null);
     setShowNewPost(false);
+    
+    // Direkt localStorage'a kaydet
+    localStorage.setItem('app_posts', JSON.stringify(updatedPosts));
+    window.dispatchEvent(new Event('storage'));
   };
 
   const handleLike = (postId: string) => {
     if (!currentUser) return;
-    setPosts(posts.map(post => {
+    
+    const updatedPosts = posts.map(post => {
       if (post.id === postId) {
         const likes = post.likes.includes(currentUser.id)
           ? post.likes.filter(id => id !== currentUser.id)
@@ -251,11 +339,16 @@ const SocialApp: React.FC = () => {
         return { ...post, likes };
       }
       return post;
-    }));
+    });
+    
+    setPosts(updatedPosts);
+    localStorage.setItem('app_posts', JSON.stringify(updatedPosts));
+    window.dispatchEvent(new Event('storage'));
   };
 
   const handleComment = (postId: string, content: string) => {
     if (!currentUser) return;
+    
     const newComment: Comment = {
       id: Date.now().toString(),
       userId: currentUser.id,
@@ -263,36 +356,64 @@ const SocialApp: React.FC = () => {
       content,
       timestamp: Date.now()
     };
-    setPosts(posts.map(post => {
+    
+    const updatedPosts = posts.map(post => {
       if (post.id === postId) {
         return { ...post, comments: [...post.comments, newComment] };
       }
       return post;
-    }));
+    });
+    
+    setPosts(updatedPosts);
+    localStorage.setItem('app_posts', JSON.stringify(updatedPosts));
+    window.dispatchEvent(new Event('storage'));
   };
 
   const handleAddFriend = (friendId: string) => {
     if (!currentUser) return;
+    
     const updatedUser = {
       ...currentUser,
       friends: [...currentUser.friends, friendId]
     };
+    
+    const updatedUsers = users.map(u => 
+      u.id === currentUser.id ? updatedUser : u
+    );
+    
     setCurrentUser(updatedUser);
-    setUsers(users.map(u => u.id === currentUser.id ? updatedUser : u));
+    setUsers(updatedUsers);
+    
+    // Direkt localStorage'a kaydet
+    localStorage.setItem('app_users', JSON.stringify(updatedUsers));
+    localStorage.setItem('app_current_user', JSON.stringify(updatedUser));
+    window.dispatchEvent(new Event('storage'));
   };
 
   const handleRemoveFriend = (friendId: string) => {
     if (!currentUser) return;
+    
     const updatedUser = {
       ...currentUser,
       friends: currentUser.friends.filter(id => id !== friendId)
     };
+    
+    const updatedUsers = users.map(u => 
+      u.id === currentUser.id ? updatedUser : u
+    );
+    
     setCurrentUser(updatedUser);
-    setUsers(users.map(u => u.id === currentUser.id ? updatedUser : u));
+    setUsers(updatedUsers);
+    
+    // Direkt localStorage'a kaydet
+    localStorage.setItem('app_users', JSON.stringify(updatedUsers));
+    localStorage.setItem('app_current_user', JSON.stringify(updatedUser));
+    window.dispatchEvent(new Event('storage'));
   };
 
   const handleSendMessage = () => {
     if (!currentUser || !activeChat || !messageInput.trim()) return;
+    
     const newMessage: Message = {
       id: Date.now().toString(),
       senderId: currentUser.id,
@@ -301,13 +422,20 @@ const SocialApp: React.FC = () => {
       timestamp: Date.now(),
       read: false
     };
-    setMessages([...messages, newMessage]);
+    
+    const updatedMessages = [...messages, newMessage];
+    setMessages(updatedMessages);
     setMessageInput('');
+    
+    // Direkt localStorage'a kaydet
+    localStorage.setItem('app_messages', JSON.stringify(updatedMessages));
+    window.dispatchEvent(new Event('storage'));
   };
 
   const getChats = (): Chat[] => {
     if (!currentUser) return [];
     const userChats = new Map<string, Chat>();
+    
     messages.forEach(msg => {
       if (msg.senderId === currentUser.id || msg.receiverId === currentUser.id) {
         const otherUserId = msg.senderId === currentUser.id ? msg.receiverId : msg.senderId;
@@ -315,6 +443,7 @@ const SocialApp: React.FC = () => {
         if (otherUser) {
           const existing = userChats.get(otherUserId);
           const isUnread = msg.receiverId === currentUser.id && !msg.read;
+          
           userChats.set(otherUserId, {
             userId: otherUser.id,
             username: otherUser.username,
@@ -326,6 +455,7 @@ const SocialApp: React.FC = () => {
         }
       }
     });
+    
     return Array.from(userChats.values()).sort((a, b) => b.unreadCount - a.unreadCount);
   };
 
@@ -417,6 +547,7 @@ const SocialApp: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white">
+      {/* Header - aynı kalacak */}
       <header className="fixed top-0 left-0 right-0 bg-[#1a1a1a]/95 backdrop-blur-md border-b border-[#2a2a2a] z-50">
         <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -435,7 +566,7 @@ const SocialApp: React.FC = () => {
             </button>
             <button className="p-2 hover:bg-[#2a2a2a] rounded-lg relative">
               <Bell className="w-5 h-5 text-[#b5bac1]" />
-              <div className="absolute top-1 right-1 w-2 h-2 bg-[#ed4245] rounded-full"></div>
+              <span className="absolute top-1 right-1 w-2 h-2 bg-[#ed4245] rounded-full"></span>
             </button>
           </div>
         </div>
@@ -443,6 +574,7 @@ const SocialApp: React.FC = () => {
 
       <main className="max-w-7xl mx-auto px-4 pt-20 pb-24">
         <div className="flex gap-4">
+          {/* Sidebar - aynı kalacak */}
           <aside className="hidden lg:block w-60 fixed left-4 top-20">
             <div className="bg-[#1a1a1a] rounded-xl border border-[#2a2a2a] p-4">
               <div className="flex items-center gap-3 mb-6">
@@ -490,7 +622,7 @@ const SocialApp: React.FC = () => {
                   <MessageCircle className="w-5 h-5" />
                   <span className="text-sm font-medium">Mesajlar</span>
                   {getChats().reduce((acc, chat) => acc + chat.unreadCount, 0) > 0 && (
-                    <span className="ml-auto bg-[#ed4245] text-white text-xs px-2 py-0.5 rounded-full font-semibold">
+                    <span className="ml-auto bg-[#ed4245] text-white text-xs px-2 py-0.5 rounded-full">
                       {getChats().reduce((acc, chat) => acc + chat.unreadCount, 0)}
                     </span>
                   )}
@@ -518,6 +650,7 @@ const SocialApp: React.FC = () => {
             </div>
           </aside>
 
+          {/* Ana içerik - aynı kalacak */}
           <div className="flex-1 lg:ml-64">
             {activeTab === 'home' && (
               <div className="max-w-2xl mx-auto space-y-4">
@@ -820,6 +953,7 @@ const SocialApp: React.FC = () => {
         </div>
       </main>
 
+      {/* Mobil navigasyon - aynı kalacak */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-[#1a1a1a]/95 backdrop-blur-md border-t border-[#2a2a2a] z-50">
         <div className="flex items-center justify-around px-4 h-16">
           <button onClick={() => setActiveTab('home')} className={`flex flex-col items-center gap-1 ${activeTab === 'home' ? 'text-[#5865F2]' : 'text-[#b5bac1]'}`}>
@@ -846,6 +980,7 @@ const SocialApp: React.FC = () => {
         </div>
       </nav>
 
+      {/* Yeni gönderi modalı - aynı kalacak */}
       {showNewPost && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-[#1a1a1a] rounded-2xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col border border-[#2a2a2a]">
@@ -917,6 +1052,7 @@ const SocialApp: React.FC = () => {
         </div>
       )}
 
+      {/* Kullanıcı arama modalı - aynı kalacak */}
       {showUserSearch && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-[#1a1a1a] rounded-2xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col border border-[#2a2a2a]">
