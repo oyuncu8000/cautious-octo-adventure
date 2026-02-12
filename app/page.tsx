@@ -78,47 +78,64 @@ const SocialApp: React.FC = () => {
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // LocalStorage'dan verileri yükle
   useEffect(() => {
     if (typeof window !== 'undefined') {
       try {
         const usersData = localStorage.getItem('app_users');
-        if (usersData) setUsers(JSON.parse(usersData));
+        if (usersData) {
+          setUsers(JSON.parse(usersData));
+        }
+
         const postsData = localStorage.getItem('app_posts');
-        if (postsData) setPosts(JSON.parse(postsData));
+        if (postsData) {
+          setPosts(JSON.parse(postsData));
+        }
+
         const messagesData = localStorage.getItem('app_messages');
-        if (messagesData) setMessages(JSON.parse(messagesData));
+        if (messagesData) {
+          setMessages(JSON.parse(messagesData));
+        }
+
         const currentUserData = localStorage.getItem('app_current_user');
-        if (currentUserData) setCurrentUser(JSON.parse(currentUserData));
+        if (currentUserData) {
+          setCurrentUser(JSON.parse(currentUserData));
+        }
       } catch (error) {
         console.error('Veri yükleme hatası:', error);
       }
     }
   }, []);
 
+  // Kullanıcıları localStorage'a kaydet
   useEffect(() => {
-    if (typeof window !== 'undefined' && users.length > 0) {
+    if (typeof window !== 'undefined') {
       localStorage.setItem('app_users', JSON.stringify(users));
     }
   }, [users]);
 
+  // Gönderileri localStorage'a kaydet
   useEffect(() => {
-    if (typeof window !== 'undefined' && posts.length > 0) {
+    if (typeof window !== 'undefined') {
       localStorage.setItem('app_posts', JSON.stringify(posts));
     }
   }, [posts]);
 
+  // Mesajları localStorage'a kaydet
   useEffect(() => {
-    if (typeof window !== 'undefined' && messages.length > 0) {
+    if (typeof window !== 'undefined') {
       localStorage.setItem('app_messages', JSON.stringify(messages));
     }
   }, [messages]);
 
+  // Mevcut kullanıcıyı localStorage'a kaydet
   useEffect(() => {
     if (typeof window !== 'undefined' && currentUser) {
       localStorage.setItem('app_current_user', JSON.stringify(currentUser));
     }
   }, [currentUser]);
 
+  // Mesajları otomatik kaydır
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, activeChat]);
