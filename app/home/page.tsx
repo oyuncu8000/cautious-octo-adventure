@@ -2,20 +2,25 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
+import BottomNav from "../components/BottomNav"; // Alt menü bileşeni
+import ProfilePage from "../account/page";
+import FriendsPage from "../friends/page";
+import ServersPage from "../servers/page";
 
 export default function Home() {
   const [user, setUser] = useState<any>(null);
   const [content, setContent] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [posts, setPosts] = useState<any[]>([]);
+  const [currentPage, setCurrentPage] = useState("Home"); // Alt menü için
 
   useEffect(() => {
     checkUser();
   }, []);
 
   useEffect(() => {
-    if (user) fetchPosts();
-  }, [user]);
+    if (user && currentPage === "Home") fetchPosts();
+  }, [user, currentPage]);
 
   const checkUser = async () => {
     const { data } = await supabase.auth.getUser();
@@ -90,68 +95,79 @@ export default function Home() {
     fetchPosts();
   };
 
+  // Sayfa render fonksiyonu
+  const renderPage = () => {
+    switch (currentPage) {
+      case "Home":
+        return (
+          <div className="flex flex-col items-center min-h-screen gap-6 p-4 md:p-8">
+            <h1 className="text-4xl font-bold gradient-text mt-6">Ana Sayfa</h1>
+
+            {/* Post Form */}
+            <div className="flex flex-col gap-3 w-full max-w-lg bg-black bg-opacity-80 p-4 rounded-lg glass">
+              <textarea
+                placeholder="Ne düşünüyorsun?"
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                className="input-field resize-none"
+              />
+              <input
+                type="file"
+                accept="image/*,video/*"
+                onChange={(e) => setFile(e.target.files?.[0] || null)}
+                className="input-field"
+              />
+              <button className="btn-primary" onClick={handleUpload}>
+                Paylaş
+              </button>
+            </div>
+
+            {/* Feed */}
+            <div className="flex flex-col gap-4 w-full max-w-lg mt-6">
+              {posts.map((post) => (
+                <div key={post.id} className="feed-card p-4">
+                  <p>{post.content}</p>
+
+                  {post.media_url && post.media_type?.startsWith("image") && (
+                    <img
+                      src={post.media_url}
+                      className="w-full mt-2 rounded-md"
+                    />
+                  )}
+
+                  {post.media_url && post.media_type?.startsWith("video") && (
+                    <video
+                      src={post.media_url}
+                      controls
+                      className="w-full mt-2 rounded-md"
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+
+      case "Profil":
+        return <ProfilePage />;
+
+      case "Arkadaşlar":
+        return <FriendsPage />;
+
+      case "Sunucular":
+        return <ServersPage />;
+
+      default:
+        return <div>Sayfa bulunamadı</div>;
+    }
+  };
+
   return (
-    <div style={{ padding: 40, maxWidth: 600, margin: "auto" }}>
-      <h1>Ana Sayfa</h1>
+    <div className="relative min-h-screen">
+      {renderPage()}
 
-      <textarea
-        placeholder="Ne düşünüyorsun?"
-        value={content}
-        onChange={(e) => setContent(e.target.value)}
-        style={{ width: "100%", padding: 10, marginBottom: 10 }}
-      />
-
-      <input
-        type="file"
-        accept="image/*,video/*"
-        onChange={(e) => setFile(e.target.files?.[0] || null)}
-        style={{ marginBottom: 10 }}
-      />
-
-      <button
-        onClick={handleUpload}
-        style={{
-          padding: 10,
-          backgroundColor: "black",
-          color: "white",
-          border: "none",
-          cursor: "pointer",
-        }}
-      >
-        Paylaş
-      </button>
-
-      <hr style={{ margin: "20px 0" }} />
-
-      {posts.map((post) => (
-        <div
-          key={post.id}
-          style={{
-            border: "1px solid #ddd",
-            padding: 15,
-            marginBottom: 15,
-          }}
-        >
-          <p>{post.content}</p>
-
-          {post.media_url &&
-            post.media_type?.startsWith("image") && (
-              <img
-                src={post.media_url}
-                style={{ width: "100%", marginTop: 10 }}
-              />
-            )}
-
-          {post.media_url &&
-            post.media_type?.startsWith("video") && (
-              <video
-                src={post.media_url}
-                controls
-                style={{ width: "100%", marginTop: 10 }}
-              />
-            )}
-        </div>
-      ))}
+      {/* Alt menü */}
+      <BottomNav current={currentPage} onNavigate={setCurrentPage} />
     </div>
   );
 }
