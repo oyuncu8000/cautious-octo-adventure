@@ -1,18 +1,9 @@
-import './globals.css'
+import './globals.css';
 
-export const metadata = {
-  title: 'Social App',
-  description: 'Modern sosyal medya uygulaması',
-}
-
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function RootLayout({ children }) {
   return (
     <html lang="tr">
-      <body className="antialiased">{children}</body>
+      <body>{children}</body>
     </html>
-  )
+  );
 }
